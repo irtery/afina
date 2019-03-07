@@ -10,19 +10,17 @@ bool SimpleLRU::Put(const std::string &key, const std::string &value) {
         return false;
     }
 
-    if(IsKeyExists(key)) {
-        return Set(key, value);
-    }
-
     if(size > FreeSize()) {
         DeleteFromHeadForSize(size);       // push lru nodes from list
     }
 
-    auto *node = new lru_node;
-    node->key = key;
-    node->value = value;
+    if(IsKeyExists(key)) {
+        return Set(key, value);
+    }
 
+    auto *node = new lru_node(key, value);
     PutToTail(node);
+
     _in_use_size += SizeOf(key, value);
     _lru_index.insert(std::make_pair(std::reference_wrapper<const std::string>(node->key),
                                      std::reference_wrapper<lru_node>(*node)));
@@ -47,7 +45,7 @@ bool SimpleLRU::Set(const std::string &key, const std::string &value) {
     auto &node = it->second.get();
     auto old_size = SizeOf(node.key, node.value), diff = old_size - SizeOf(key, value);
 
-    if(diff > 0){
+    if(diff > 0){ // todo
         _in_use_size -= diff;
     } else {
         if(diff > FreeSize()) {
@@ -153,7 +151,6 @@ void SimpleLRU::DeleteFromHeadForSize(const std::size_t &size) {
 
         if(_lru_head->next == nullptr) { // it was last item, head == tail
             delete _lru_head;
-            delete _lru_tail;
             _lru_head = _lru_tail = nullptr;
         } else {
             _lru_head = _lru_head->next;
