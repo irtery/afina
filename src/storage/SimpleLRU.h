@@ -51,7 +51,7 @@ private:
         lru_node *prev;
         lru_node *next;
 
-        lru_node() : prev(nullptr), next(nullptr) {}
+        lru_node(const std::string &k, const std::string &v) : prev(nullptr), next(nullptr), key(k), value(v) {}
 
         ~lru_node() {}
     };
