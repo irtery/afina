@@ -62,7 +62,31 @@ bool SimpleLRU::Set(const std::string &key, const std::string &value) {
     return true;
 }
 
-bool SimpleLRU::Delete(const std::string &key) { return false; }
+bool SimpleLRU::Delete(const std::string &key) {
+    if(!IsKeyExists(key)) {
+        return false;
+    }
+
+    auto it = _lru_index.find(key);
+    auto &node = it->second.get();
+
+    _lru_index.erase(it);
+    _in_use_size -= SizeOf(node.key, node.value);
+
+    if(_lru_head == &node) {
+        _lru_head = _lru_head->next;
+        _lru_head->prev = nullptr;
+    } else if(_lru_tail == &node) {
+        _lru_tail = _lru_tail->prev;
+        _lru_tail->next = nullptr;
+    } else {
+        node.prev->next = node.next;
+        node.next->prev = node.prev;
+    }
+
+    delete &node;
+    return true;
+}
 
 bool SimpleLRU::Get(const std::string &key, std::string &value) {
     if(!IsKeyExists(key)) {
