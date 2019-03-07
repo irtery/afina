@@ -37,21 +37,22 @@ bool SimpleLRU::PutIfAbsent(const std::string &key, const std::string &value) {
 }
 
 bool SimpleLRU::Set(const std::string &key, const std::string &value) {
-    if(!IsKeyExists(key)) { // don't set if no such key
+    auto it = _lru_index.find(key);
+    if(it == _lru_index.end()) { // don't set if no such key
         return false;
     }
 
-    auto it = _lru_index.find(key);
     auto &node = it->second.get();
-    auto old_size = SizeOf(node.key, node.value), diff = old_size - SizeOf(key, value);
+    auto old_size = SizeOf(node.key, node.value);
+    auto new_size = SizeOf(key, value);
 
-    if(diff > 0){ // todo
-        _in_use_size -= diff;
+    if(old_size > new_size) { // comparison of size_t vars
+        _in_use_size -= old_size - new_size;
     } else {
-        if(diff > FreeSize()) {
+        if(new_size - old_size > FreeSize()) {
             return false;
         }
-        _in_use_size += diff;
+        _in_use_size += new_size - old_size;
     }
 
     node.value = value;
@@ -61,11 +62,11 @@ bool SimpleLRU::Set(const std::string &key, const std::string &value) {
 }
 
 bool SimpleLRU::Delete(const std::string &key) {
-    if(!IsKeyExists(key)) {
+    auto it = _lru_index.find(key);
+    if(it == _lru_index.end()) {
         return false;
     }
 
-    auto it = _lru_index.find(key);
     auto &node = it->second.get();
 
     _lru_index.erase(it);
@@ -87,11 +88,11 @@ bool SimpleLRU::Delete(const std::string &key) {
 }
 
 bool SimpleLRU::Get(const std::string &key, std::string &value) {
-    if(!IsKeyExists(key)) {
+    auto it = _lru_index.find(key);
+    if(it == _lru_index.end()) {
         return false;
     }
 
-    auto it = _lru_index.find(key);
     auto &node = it->second.get();
 
     value = node.value;
