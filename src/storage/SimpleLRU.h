@@ -22,7 +22,8 @@ public:
     ~SimpleLRU() {
         _lru_index.clear();
         auto p = _lru_head;
-        while(p->next != nullptr) {
+
+        while(p != nullptr) {
             auto tmp = p->next;
             delete p;
             p = tmp;
@@ -49,6 +50,10 @@ private:
         std::string value;
         lru_node *prev;
         lru_node *next;
+
+        lru_node() : prev(nullptr), next(nullptr) {}
+
+        ~lru_node() {}
     };
 
     // Maximum number of bytes could be stored in this cache.
