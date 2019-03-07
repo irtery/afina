@@ -152,10 +152,12 @@ void SimpleLRU::DeleteFromHeadForSize(const std::size_t &size) {
         _in_use_size -= SizeOf(_lru_head->key, _lru_head->value);
 
         if(_lru_head->next == nullptr) { // it was last item, head == tail
+            delete _lru_head;
+            delete _lru_tail;
             _lru_head = _lru_tail = nullptr;
         } else {
-            delete _lru_head;
             _lru_head = _lru_head->next;
+            delete _lru_head->prev;
             _lru_head->prev = nullptr;
         }
     }
