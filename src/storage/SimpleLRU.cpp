@@ -72,18 +72,19 @@ bool SimpleLRU::Delete(const std::string &key) {
     _lru_index.erase(it);
     _in_use_size -= SizeOf(node.key, node.value);
 
-    if(_lru_head == &node) {
-        _lru_head = _lru_head->next;
+    if(_lru_head.get() == &node) {
+        _lru_head = std::move(_lru_head->next);
         _lru_head->prev = nullptr;
     } else if(_lru_tail == &node) {
         _lru_tail = _lru_tail->prev;
-        _lru_tail->next = nullptr;
+        _lru_tail->next.reset();
     } else {
-        node.prev->next = node.next;
-        node.next->prev = node.prev;
+        auto tmp = std::move(node.prev->next);
+        node.prev->next = std::move(tmp->next);
+        node.next->prev = tmp->prev;
+        tmp.reset();
     }
 
-    delete &node;
     return true;
 }
 
@@ -116,11 +117,11 @@ bool SimpleLRU::IsKeyExists(const std::string &key) const {
 
 void SimpleLRU::PutToTail(lru_node *node) {
     if(_lru_tail == nullptr) { // empty list
-        _lru_head = _lru_tail = node;
+        _lru_head = std::unique_ptr<lru_node>(node);
+        _lru_tail = node;
     } else {
-        node->next = nullptr;
         node->prev = _lru_tail;
-        _lru_tail->next = node;
+        _lru_tail->next.reset(node);
         _lru_tail = node;
     }
 }
@@ -130,15 +131,27 @@ void SimpleLRU::MoveToTail(lru_node *node) {
         return;
     }
 
-    if(node == _lru_head) {
-        _lru_head = _lru_head->next;
-        _lru_head->prev = nullptr;
-    } else {
-        node->prev->next = node->next;
-        node->next->prev = node->prev;
-    }
+    if(node == _lru_head.get()) {
+        auto tmp = std::move(_lru_head->next);
+        _lru_head->prev = _lru_tail;
+        _lru_tail->next = std::move(_lru_head);
+        _lru_tail = _lru_tail->next.get();
 
-    PutToTail(node);
+        _lru_head = std::move(tmp);
+        _lru_head->prev = nullptr;
+
+    } else {
+        auto prev = node->prev;
+        auto next = std::move(node->next);
+        auto tmp = std::move(node->prev->next); // to save node
+
+        next->prev = prev;
+        prev->next = std::move(next);
+
+        tmp->prev = _lru_tail;
+        _lru_tail->next = std::move(tmp);
+        _lru_tail = _lru_tail->next.get();
+    }
 }
 
 void SimpleLRU::DeleteFromHeadForSize(const std::size_t &size) {
@@ -151,11 +164,10 @@ void SimpleLRU::DeleteFromHeadForSize(const std::size_t &size) {
         _in_use_size -= SizeOf(_lru_head->key, _lru_head->value);
 
         if(_lru_head->next == nullptr) { // it was last item, head == tail
-            delete _lru_head;
-            _lru_head = _lru_tail = nullptr;
+            _lru_head.reset();
+            _lru_tail = nullptr;
         } else {
-            _lru_head = _lru_head->next;
-            delete _lru_head->prev;
+            _lru_head = std::move(_lru_head->next);
             _lru_head->prev = nullptr;
         }
     }
