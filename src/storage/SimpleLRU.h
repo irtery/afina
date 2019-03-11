@@ -17,13 +17,14 @@ namespace Backend {
  */
 class SimpleLRU : public Afina::Storage {
 public:
-    explicit SimpleLRU(size_t max_size = 1024) : _max_size(max_size), _in_use_size(0), _lru_head(nullptr), _lru_tail(nullptr) {}
+    explicit SimpleLRU(size_t max_size = 1024)
+        : _max_size(max_size), _in_use_size(0), _lru_head(nullptr), _lru_tail(nullptr) {}
 
     ~SimpleLRU() override {
         _lru_index.clear();
         auto p = std::move(_lru_head);
 
-        while(p != nullptr) {
+        while (p != nullptr) {
             auto tmp = std::move(p->next);
             p.reset();
             p = std::move(tmp);
@@ -66,12 +67,15 @@ private:
     lru_node *_lru_tail;
 
     // Index of nodes from list above, allows fast random access to elements by lru_node#key
-    std::map<std::reference_wrapper<const std::string>, std::reference_wrapper<lru_node>, std::less<std::string>> _lru_index;
+    std::map<std::reference_wrapper<const std::string>, std::reference_wrapper<lru_node>, std::less<std::string>>
+        _lru_index;
 
     std::size_t FreeSize() const;
     std::size_t SizeOf(const std::string &key, const std::string &value) const;
 
-    bool IsKeyExists(const std::string &key) const;
+    bool
+    SetByIterator(std::map<std::reference_wrapper<const std::string>, std::reference_wrapper<lru_node>>::iterator it,
+                  const std::string &value);
     void PutToTail(lru_node *node);
     void MoveToTail(lru_node *node);
     void DeleteFromHeadForSize(const std::size_t &size);
