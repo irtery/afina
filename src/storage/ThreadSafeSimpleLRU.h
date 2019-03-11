@@ -15,43 +15,57 @@ namespace Backend {
  *
  *
  */
-class ThreadSafeSimplLRU : public SimpleLRU {
+class ThreadSafeSimplLRU : public Afina::Storage {
 public:
-    ThreadSafeSimplLRU(size_t max_size = 1024) : SimpleLRU(max_size) {}
-    ~ThreadSafeSimplLRU() {}
+    explicit ThreadSafeSimplLRU(size_t max_size = 1024) {
+        _simpleLRU = std::unique_ptr<SimpleLRU>(new SimpleLRU(max_size));
+    }
+    ~ThreadSafeSimplLRU() override = default;
 
     // see SimpleLRU.h
     bool Put(const std::string &key, const std::string &value) override {
-        // TODO: sinchronization
-        return SimpleLRU::Put(key, value);
+        mutex.lock();
+        bool result = _simpleLRU->Put(key, value);
+        mutex.unlock();
+        return result;
     }
 
     // see SimpleLRU.h
     bool PutIfAbsent(const std::string &key, const std::string &value) override {
-        // TODO: sinchronization
-        return SimpleLRU::PutIfAbsent(key, value);
+        mutex.lock();
+        bool result = _simpleLRU->PutIfAbsent(key, value);
+        mutex.unlock();
+        return result;
     }
 
     // see SimpleLRU.h
     bool Set(const std::string &key, const std::string &value) override {
-        // TODO: sinchronization
-        return SimpleLRU::Set(key, value);
+        mutex.lock();
+        bool result = _simpleLRU->Set(key, value);
+        mutex.unlock();
+        return result;
     }
 
     // see SimpleLRU.h
     bool Delete(const std::string &key) override {
-        // TODO: sinchronization
-        return SimpleLRU::Delete(key);
+        mutex.lock();
+        bool result = _simpleLRU->Delete(key);
+        mutex.unlock();
+        return result;
+        ;
     }
 
     // see SimpleLRU.h
     bool Get(const std::string &key, std::string &value) override {
-        // TODO: sinchronization
-        return SimpleLRU::Get(key, value);
+        mutex.lock();
+        bool result = _simpleLRU->Get(key, value);
+        mutex.unlock();
+        return result;
     }
 
 private:
-    // TODO: sinchronization primitives
+    std::mutex mutex;
+    std::unique_ptr<SimpleLRU> _simpleLRU;
 };
 
 } // namespace Backend
