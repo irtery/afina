@@ -24,43 +24,32 @@ public:
 
     // see SimpleLRU.h
     bool Put(const std::string &key, const std::string &value) override {
-        mutex.lock();
-        bool result = _simpleLRU->Put(key, value);
-        mutex.unlock();
-        return result;
+        std::lock_guard<std::mutex> lock(mutex);
+        return _simpleLRU->Put(key, value);
     }
 
     // see SimpleLRU.h
     bool PutIfAbsent(const std::string &key, const std::string &value) override {
-        mutex.lock();
-        bool result = _simpleLRU->PutIfAbsent(key, value);
-        mutex.unlock();
-        return result;
+        std::lock_guard<std::mutex> lock(mutex);
+        return _simpleLRU->PutIfAbsent(key, value);
     }
 
     // see SimpleLRU.h
     bool Set(const std::string &key, const std::string &value) override {
-        mutex.lock();
-        bool result = _simpleLRU->Set(key, value);
-        mutex.unlock();
-        return result;
+        std::lock_guard<std::mutex> lock(mutex);
+        return _simpleLRU->Set(key, value);
     }
 
     // see SimpleLRU.h
     bool Delete(const std::string &key) override {
-        mutex.lock();
-        bool result = _simpleLRU->Delete(key);
-        mutex.unlock();
-        return result;
-        ;
+        std::lock_guard<std::mutex> lock(mutex);
+        return _simpleLRU->Delete(key);
     }
 
     // see SimpleLRU.h
     bool Get(const std::string &key, std::string &value) override {
-        mutex.lock();
-        bool result = _simpleLRU->Get(key, value);
-        mutex.unlock();
-        return result;
+        std::lock_guard<std::mutex> lock(mutex);
+        return _simpleLRU->Get(key, value);
     }
 
 private:
