@@ -36,7 +36,7 @@ public:
      *
      * If given key is already present in the storage then method resturns false
      * and doesn't change anything inside. Otherwise new association key->value
-     * created and if successfull then true returns.
+     * created and if successful then true returns.
      *
      * @param key to be associated with value
      * @param value to be assigned for the key

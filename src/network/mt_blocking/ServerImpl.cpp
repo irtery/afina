@@ -1,4 +1,5 @@
 #include "ServerImpl.h"
+#include "Worker.h"
 
 #include <cassert>
 #include <cstring>
@@ -28,19 +29,23 @@ namespace Network {
 namespace MTblocking {
 
 // See Server.h
-ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl) : Server(ps, pl) {}
+ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl)
+    : Server(std::move(ps), std::move(pl)) {}
 
 // See Server.h
-ServerImpl::~ServerImpl() {}
+ServerImpl::~ServerImpl() = default;
 
 // See Server.h
 void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
+
+    _max_workers = n_workers;
+
     _logger = pLogging->select("network");
     _logger->info("Start mt_blocking network service");
 
     sigset_t sig_mask;
     sigemptyset(&sig_mask);
-    sigaddset(&sig_mask, SIGPIPE);
+    sigaddset(&sig_mask, SIGPIPE); // adds the specified signal signo to the signal set
     if (pthread_sigmask(SIG_BLOCK, &sig_mask, NULL) != 0) {
         throw std::runtime_error("Unable to mask SIGPIPE");
     }
@@ -84,8 +89,13 @@ void ServerImpl::Stop() {
 
 // See Server.h
 void ServerImpl::Join() {
+    for (auto &w : _workers) {
+        w.Join();
+    }
+
     assert(_thread.joinable());
     _thread.join();
+
     close(_server_socket);
 }
 
@@ -101,6 +111,7 @@ void ServerImpl::OnRun() {
     std::string argument_for_command;
     std::unique_ptr<Execute::Command> command_to_execute;
     while (running.load()) {
+        _logger->debug("Max possible workers {}\n", _max_workers);
         _logger->debug("waiting for connection...");
 
         // The call to accept() blocks until the incoming connection arrives
@@ -132,13 +143,18 @@ void ServerImpl::OnRun() {
             setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
         }
 
-        // TODO: Start new thread and process data from/to connection
+        // Start new thread and process data from/to connection
         {
-            static const std::string msg = "TODO: start new thread and process memcached protocol instead";
-            if (send(client_socket, msg.data(), msg.size(), 0) <= 0) {
-                _logger->error("Failed to write response to client: {}", strerror(errno));
+            std::lock_guard<std::mutex> lock(_worker_mutex);
+
+            if (_workers.size() <= _max_workers) {
+                _logger->debug("Create new worker for client_socket {}\n", client_socket);
+                _workers.emplace_back(pStorage, pLogging);
+                _workers.back().Start(client_socket);
+            } else {
+                _logger->debug("Maximum connections reached, closing client_socket {}\n", client_socket);
+                close(client_socket);
             }
-            close(client_socket);
         }
     }
 

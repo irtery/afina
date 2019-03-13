@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <thread>
+#include <mutex>
 
 #include <afina/network/Server.h>
 
@@ -14,6 +15,8 @@ namespace Afina {
 namespace Network {
 namespace MTblocking {
 
+class Worker;
+
 /**
  * # Network resource manager implementation
  * Server that is spawning a separate thread for each connection
@@ -21,7 +24,7 @@ namespace MTblocking {
 class ServerImpl : public Server {
 public:
     ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl);
-    ~ServerImpl();
+    ~ServerImpl() override;
 
     // See Server.h
     void Start(uint16_t port, uint32_t, uint32_t) override;
@@ -39,6 +42,10 @@ protected:
     void OnRun();
 
 private:
+    uint32_t _max_workers;
+    std::vector<Worker> _workers;
+    std::mutex _worker_mutex;
+
     // Logger instance
     std::shared_ptr<spdlog::logger> _logger;
 
