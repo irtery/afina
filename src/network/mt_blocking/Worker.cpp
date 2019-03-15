@@ -5,7 +5,6 @@
 #include <iostream>
 
 #include <netdb.h>
-#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 
@@ -21,25 +20,25 @@ namespace Network {
 namespace MTblocking {
 
 Worker::Worker(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Afina::Logging::Service> pl)
-    : _pStorage(ps), _pLogging(pl), isRunning(false), _client_socket(-1) {}
+    : _pStorage(ps), _pLogging(pl), _isRunning(false), _client_socket(-1) {}
 
 Worker::~Worker() {}
 
 Worker::Worker(Worker &&other) { *this = std::move(other); }
 
 Worker &Worker::operator=(Worker &&other) {
+    assert(!other._isRunning.load());
     _pStorage = std::move(other._pStorage);
     _pLogging = std::move(other._pLogging);
     _logger = std::move(other._logger);
     _thread = std::move(other._thread);
     _client_socket = other._client_socket;
-
     other._client_socket = -1;
     return *this;
 }
 
 void Worker::Start(int client_socket) {
-    if (isRunning.exchange(true))
+    if (_isRunning.exchange(true))
         return;
     assert(_client_socket == -1);
     _client_socket = client_socket;
@@ -47,7 +46,8 @@ void Worker::Start(int client_socket) {
     _thread = std::thread(&Worker::OnRun, this);
 }
 
-void Worker::Stop() { isRunning.store(false); }
+void Worker::Stop() { _isRunning.store(false); }
+bool Worker::IsRunning() const { return _isRunning.load(); }
 
 void Worker::Join() {
     assert(_thread.joinable());
@@ -64,7 +64,7 @@ void Worker::OnRun() {
     Protocol::Parser parser;
     std::string argument_for_command;
     std::unique_ptr<Execute::Command> command_to_execute;
-    if (isRunning.load()) {
+    if (_isRunning.load()) {
         // Process new connection:
         // - read commands until socket alive
         // - execute each command
@@ -144,6 +144,7 @@ void Worker::OnRun() {
             }
         } catch (std::runtime_error &ex) {
             _logger->error("Failed to process connection on descriptor {}: {}", _client_socket, ex.what());
+            _isRunning.store(false);
         }
 
         // We are done with this connection
@@ -153,6 +154,8 @@ void Worker::OnRun() {
         command_to_execute.reset();
         argument_for_command.resize(0);
         parser.Reset();
+
+        _isRunning.store(false);
     }
 
     // Cleanup on exit...

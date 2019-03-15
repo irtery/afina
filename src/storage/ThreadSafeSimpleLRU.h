@@ -49,7 +49,7 @@ public:
     // see SimpleLRU.h
     bool Get(const std::string &key, std::string &value) override {
         std::lock_guard<std::mutex> lock(mutex);
-        sleep(60);
+        sleep(60); // TODO: remove debug code
         return _simpleLRU->Get(key, value);
     }
 

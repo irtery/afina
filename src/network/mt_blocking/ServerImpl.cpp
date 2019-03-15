@@ -1,6 +1,7 @@
 #include "ServerImpl.h"
 #include "Worker.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -29,8 +30,7 @@ namespace Network {
 namespace MTblocking {
 
 // See Server.h
-ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl)
-    : Server(ps, pl) {}
+ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl) : Server(ps, pl) {}
 
 // See Server.h
 ServerImpl::~ServerImpl() = default;
@@ -90,8 +90,9 @@ void ServerImpl::Stop() {
 
 // See Server.h
 void ServerImpl::Join() {
-    for (auto &w : _workers) {
-        w.Join();
+    for (auto w : _workers) {
+        w->Join();
+        delete w;
     }
 
     assert(_thread.joinable());
@@ -146,10 +147,23 @@ void ServerImpl::OnRun() {
 
         // Start new thread and process data from/to connection
         {
+            std::vector<Worker *> _new_workers;
+            _new_workers.reserve(_max_workers);
+            for (auto _worker : _workers) {
+                if (!_worker->IsRunning()) {
+                    _worker->Stop();
+                    _worker->Join();
+                    delete _worker;
+                } else {
+                    _new_workers.push_back(_worker);
+                }
+            }
+            _workers = _new_workers;
+
             if (_workers.size() <= _max_workers) {
                 _logger->debug("Create new worker for client_socket {}\n", client_socket);
-                _workers.emplace_back(pStorage, pLogging);
-                _workers.back().Start(client_socket);
+                _workers.push_back(new Worker(pStorage, pLogging));
+                _workers.back()->Start(client_socket);
             } else {
                 _logger->debug("Maximum connections reached, closing client_socket {}\n", client_socket);
                 close(client_socket);
