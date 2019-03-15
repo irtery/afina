@@ -30,7 +30,7 @@ namespace MTblocking {
 
 // See Server.h
 ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl)
-    : Server(std::move(ps), std::move(pl)) {}
+    : Server(ps, pl) {}
 
 // See Server.h
 ServerImpl::~ServerImpl() = default;
@@ -39,6 +39,7 @@ ServerImpl::~ServerImpl() = default;
 void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
 
     _max_workers = n_workers;
+    _workers.reserve(_max_workers);
 
     _logger = pLogging->select("network");
     _logger->info("Start mt_blocking network service");
@@ -145,8 +146,6 @@ void ServerImpl::OnRun() {
 
         // Start new thread and process data from/to connection
         {
-            std::lock_guard<std::mutex> lock(_worker_mutex);
-
             if (_workers.size() <= _max_workers) {
                 _logger->debug("Create new worker for client_socket {}\n", client_socket);
                 _workers.emplace_back(pStorage, pLogging);

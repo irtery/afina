@@ -44,7 +44,6 @@ protected:
 private:
     uint32_t _max_workers;
     std::vector<Worker> _workers;
-    std::mutex _worker_mutex;
 
     // Logger instance
     std::shared_ptr<spdlog::logger> _logger;
