@@ -45,6 +45,8 @@ public:
      */
     void Join();
 
+    bool IsRunning() const;
+
 protected:
     /**
      * Method executing by background thread
@@ -65,7 +67,7 @@ private:
     std::shared_ptr<spdlog::logger> _logger;
 
     // Flag signals that thread should continue to operate
-    std::atomic<bool> isRunning;
+    std::atomic<bool> _isRunning;
 
     // Thread serving requests in this worker
     std::thread _thread;

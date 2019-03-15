@@ -2,8 +2,8 @@
 #define AFINA_NETWORK_MT_BLOCKING_SERVER_H
 
 #include <atomic>
-#include <thread>
 #include <mutex>
+#include <thread>
 
 #include <afina/network/Server.h>
 
@@ -43,7 +43,7 @@ protected:
 
 private:
     uint32_t _max_workers;
-    std::vector<Worker> _workers;
+    std::vector<Worker *> _workers;
 
     // Logger instance
     std::shared_ptr<spdlog::logger> _logger;
