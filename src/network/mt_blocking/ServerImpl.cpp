@@ -151,7 +151,6 @@ void ServerImpl::OnRun() {
             _new_workers.reserve(_max_workers);
             for (auto _worker : _workers) {
                 if (!_worker->IsRunning()) {
-                    _worker->Stop();
                     _worker->Join();
                     delete _worker;
                 } else {

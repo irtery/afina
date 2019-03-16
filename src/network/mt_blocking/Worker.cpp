@@ -144,7 +144,6 @@ void Worker::OnRun() {
             }
         } catch (std::runtime_error &ex) {
             _logger->error("Failed to process connection on descriptor {}: {}", _client_socket, ex.what());
-            _isRunning.store(false);
         }
 
         // We are done with this connection
