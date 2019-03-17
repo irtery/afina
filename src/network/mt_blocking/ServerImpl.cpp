@@ -142,9 +142,12 @@ void ServerImpl::OnRun() {
         if ((client_socket = accept(_server_socket, &client_addr, &client_addr_len)) == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 _logger->debug("accept() -- timeout\n");
-                std::this_thread::sleep_for (std::chrono::seconds(5));
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+                continue;
+            } else {
+                _logger->debug("accept failed with error code {}\n", errno);
+                break;
             }
-            continue;
         }
 
         // Got new connection
