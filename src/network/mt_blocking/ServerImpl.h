@@ -1,11 +1,14 @@
 #ifndef AFINA_NETWORK_MT_BLOCKING_SERVER_H
 #define AFINA_NETWORK_MT_BLOCKING_SERVER_H
 
+#include <list>
 #include <atomic>
 #include <mutex>
 #include <thread>
 
 #include <afina/network/Server.h>
+
+#include "Worker.h"
 
 namespace spdlog {
 class logger;
@@ -21,7 +24,7 @@ class Worker;
  * # Network resource manager implementation
  * Server that is spawning a separate thread for each connection
  */
-class ServerImpl : public Server {
+class ServerImpl : public Server, public WorkerDelegate {
 public:
     ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl);
     ~ServerImpl() override;
@@ -42,8 +45,13 @@ protected:
     void OnRun();
 
 private:
+    void workerDidFinish(Worker *w) override;
+    void ClearFinishedWorkers();
+
+private:
     uint32_t _max_workers;
-    std::vector<Worker *> _workers;
+    std::list<Worker *> _workers;
+    std::mutex _workers_mutex;
 
     // Logger instance
     std::shared_ptr<spdlog::logger> _logger;
@@ -58,6 +66,9 @@ private:
 
     // Thread to run network on
     std::thread _thread;
+
+    std::mutex _finished_worker_list_mutex;
+    std::vector<Worker *> _finished_worker_list;
 };
 
 } // namespace MTblocking

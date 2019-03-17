@@ -16,9 +16,16 @@ namespace Afina {
 namespace Network {
 namespace MTblocking {
 
+class Worker;
+
+class WorkerDelegate {
+public:
+    virtual void workerDidFinish(Worker *w) = 0;
+};
+
 class Worker {
 public:
-    Worker(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Afina::Logging::Service> pl);
+    Worker(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Afina::Logging::Service> pl, WorkerDelegate *delegate);
     ~Worker();
 
     Worker(Worker &&);
@@ -56,6 +63,8 @@ protected:
 private:
     Worker(Worker &) = delete;
     Worker &operator=(Worker &) = delete;
+
+    WorkerDelegate *_delegate;
 
     // afina services
     std::shared_ptr<Afina::Storage> _pStorage;
