@@ -52,8 +52,6 @@ public:
      */
     void Join();
 
-    bool IsRunning() const;
-
 protected:
     /**
      * Method executing by background thread
