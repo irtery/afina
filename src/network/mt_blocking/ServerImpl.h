@@ -1,8 +1,8 @@
 #ifndef AFINA_NETWORK_MT_BLOCKING_SERVER_H
 #define AFINA_NETWORK_MT_BLOCKING_SERVER_H
 
-#include <list>
 #include <atomic>
+#include <list>
 #include <mutex>
 #include <thread>
 

@@ -16,6 +16,32 @@ namespace Backend {
  * That is NOT thread safe implementaiton!!
  */
 class SimpleLRU : public Afina::Storage {
+    // LRU cache node
+    using lru_node = struct lru_node {
+        const std::string key;
+        std::string value;
+        lru_node *prev;
+        std::unique_ptr<lru_node> next;
+
+        lru_node(const std::string &k, const std::string &v) : prev(nullptr), next(nullptr), key(k), value(v) {}
+    };
+
+    // Maximum number of bytes could be stored in this cache.
+    // i.e all (keys+values) must be less the _max_size
+    std::size_t _max_size;
+    std::size_t _in_use_size;
+
+    // Main storage of lru_nodes, elements in this list ordered descending by "freshness": in the head
+    // element that wasn't used for longest time.
+    //
+    // List owns all nodes
+    std::unique_ptr<lru_node> _lru_head;
+    lru_node *_lru_tail;
+
+    // Index of nodes from list above, allows fast random access to elements by lru_node#key
+    std::map<std::reference_wrapper<const std::string>, std::reference_wrapper<lru_node>, std::less<std::string>>
+        _lru_index;
+
 public:
     explicit SimpleLRU(size_t max_size = 1024)
         : _max_size(max_size), _in_use_size(0), _lru_head(nullptr), _lru_tail(nullptr) {}
@@ -43,36 +69,10 @@ public:
 
     bool Get(const std::string &key, std::string &value) override;
 
+    static std::size_t SizeOf(const std::string &key, const std::string &value) { return key.size() + value.size(); }
+
 private:
-    // LRU cache node
-    using lru_node = struct lru_node {
-        std::string key;
-        std::string value;
-        lru_node *prev;
-        std::unique_ptr<lru_node> next;
-
-        lru_node(const std::string &k, const std::string &v) : prev(nullptr), next(nullptr), key(k), value(v) {}
-    };
-
-    // Maximum number of bytes could be stored in this cache.
-    // i.e all (keys+values) must be less the _max_size
-    std::size_t _max_size;
-    std::size_t _in_use_size;
-
-    // Main storage of lru_nodes, elements in this list ordered descending by "freshness": in the head
-    // element that wasn't used for longest time.
-    //
-    // List owns all nodes
-    std::unique_ptr<lru_node> _lru_head;
-    lru_node *_lru_tail;
-
-    // Index of nodes from list above, allows fast random access to elements by lru_node#key
-    std::map<std::reference_wrapper<const std::string>, std::reference_wrapper<lru_node>, std::less<std::string>>
-        _lru_index;
-
     std::size_t FreeSize() const;
-    std::size_t SizeOf(const std::string &key, const std::string &value) const;
-
     bool
     SetByIterator(std::map<std::reference_wrapper<const std::string>, std::reference_wrapper<lru_node>>::iterator it,
                   const std::string &value);

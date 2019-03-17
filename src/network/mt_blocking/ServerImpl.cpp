@@ -9,14 +9,14 @@
 #include <stdexcept>
 
 #include <arpa/inet.h>
+#include <chrono>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <thread>
-#include <chrono>
 #include <pthread.h>
 #include <signal.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <thread>
 #include <unistd.h>
 
 #include <spdlog/logger.h>
@@ -130,7 +130,7 @@ void ServerImpl::Join() {
 
 // See Server.h
 void ServerImpl::OnRun() {
-        // Here is connection state
+    // Here is connection state
     // - parser: parse state of the stream
     // - command_to_execute: last command parsed out of stream
     // - arg_remains: how many bytes to read from stream to get command argument
@@ -147,10 +147,10 @@ void ServerImpl::OnRun() {
         int client_socket;
         struct sockaddr client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
-try_accept:
+    try_accept:
         if ((client_socket = accept(_server_socket, &client_addr, &client_addr_len)) == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::seconds(1)); // TODO: bad, not accepting connections in 1 sec
                 ClearFinishedWorkers();
                 goto try_accept;
             } else {
@@ -204,7 +204,7 @@ void ServerImpl::ClearFinishedWorkers() {
     std::lock_guard<std::mutex> lock1(_finished_worker_list_mutex);
     std::lock_guard<std::mutex> lock2(_workers_mutex);
     for (auto w : _finished_worker_list) {
-        auto it = find (_workers.begin(), _workers.end(), w);
+        auto it = find(_workers.begin(), _workers.end(), w);
         if (it != _workers.end()) {
             _workers.erase(it);
             w->Join();

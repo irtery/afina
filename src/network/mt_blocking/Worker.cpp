@@ -19,7 +19,8 @@ namespace Afina {
 namespace Network {
 namespace MTblocking {
 
-Worker::Worker(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Afina::Logging::Service> pl, WorkerDelegate *delegate)
+Worker::Worker(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Afina::Logging::Service> pl,
+               WorkerDelegate *delegate)
     : _pStorage(ps), _pLogging(pl), _isRunning(false), _client_socket(-1), _delegate(delegate) {}
 
 Worker::~Worker() {}
