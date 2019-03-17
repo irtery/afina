@@ -19,8 +19,8 @@ namespace Afina {
 namespace Network {
 namespace MTblocking {
 
-Worker::Worker(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Afina::Logging::Service> pl)
-    : _pStorage(ps), _pLogging(pl), _isRunning(false), _client_socket(-1) {}
+Worker::Worker(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Afina::Logging::Service> pl, WorkerDelegate *delegate)
+    : _pStorage(ps), _pLogging(pl), _isRunning(false), _client_socket(-1), _delegate(delegate) {}
 
 Worker::~Worker() {}
 
@@ -32,6 +32,7 @@ Worker &Worker::operator=(Worker &&other) {
     _pLogging = std::move(other._pLogging);
     _logger = std::move(other._logger);
     _thread = std::move(other._thread);
+    _delegate = other._delegate;
     _client_socket = other._client_socket;
     other._client_socket = -1;
     return *this;
@@ -158,7 +159,8 @@ void Worker::OnRun() {
     }
 
     // Cleanup on exit...
-    _logger->warn("Network stopped");
+    _logger->warn("Worker stopped");
+    _delegate->workerDidFinish(this);
 }
 
 } // namespace MTblocking

@@ -56,7 +56,6 @@ ServerImpl::~ServerImpl() = default;
 void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
 
     _max_workers = n_workers;
-    _workers.reserve(_max_workers);
 
     _logger = pLogging->select("network");
     _logger->info("Start mt_blocking network service");
@@ -109,9 +108,12 @@ void ServerImpl::Stop() {
 
 // See Server.h
 void ServerImpl::Join() {
-    for (auto w : _workers) {
-        w->Join();
-        delete w;
+    {
+        std::lock_guard<std::mutex> lock(_workers_mutex);
+        for (auto w : _workers) {
+            w->Join();
+            delete w;
+        }
     }
 
     assert(_thread.joinable());
@@ -143,6 +145,7 @@ void ServerImpl::OnRun() {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 _logger->debug("accept() -- timeout\n");
                 std::this_thread::sleep_for(std::chrono::seconds(5));
+                ClearFinishedWorkers();
                 continue;
             } else {
                 _logger->debug("accept failed with error code {}\n", errno);
@@ -171,23 +174,14 @@ void ServerImpl::OnRun() {
             setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
         }
 
+        ClearFinishedWorkers();
+
         // Start new thread and process data from/to connection
         {
-            std::vector<Worker *> _new_workers;
-            _new_workers.reserve(_max_workers);
-            for (auto _worker : _workers) {
-                if (!_worker->IsRunning()) {
-                    _worker->Join();
-                    delete _worker;
-                } else {
-                    _new_workers.push_back(_worker);
-                }
-            }
-            _workers = _new_workers;
-
+            std::lock_guard<std::mutex> lock(_workers_mutex);
             if (_workers.size() <= _max_workers) {
                 _logger->debug("Create new worker for client_socket {}\n", client_socket);
-                _workers.push_back(new Worker(pStorage, pLogging));
+                _workers.push_back(new Worker(pStorage, pLogging, this));
                 _workers.back()->Start(client_socket);
             } else {
                 _logger->debug("Maximum connections reached, closing client_socket {}\n", client_socket);
@@ -198,6 +192,25 @@ void ServerImpl::OnRun() {
 
     // Cleanup on exit...
     _logger->warn("Network stopped");
+}
+
+void ServerImpl::ClearFinishedWorkers() {
+    std::lock_guard<std::mutex> lock1(_finished_worker_list_mutex);
+    std::lock_guard<std::mutex> lock2(_workers_mutex);
+    for (auto w : _finished_worker_list) {
+        auto it = find (_workers.begin(), _workers.end(), w);
+        if (it != _workers.end()) {
+            _workers.erase(it);
+            w->Join();
+            delete w;
+        }
+    }
+    _finished_worker_list.clear();
+}
+
+void ServerImpl::workerDidFinish(Worker *w) {
+    std::lock_guard<std::mutex> lock(_finished_worker_list_mutex);
+    _finished_worker_list.push_back(w);
 }
 
 } // namespace MTblocking
