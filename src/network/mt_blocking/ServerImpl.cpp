@@ -103,7 +103,13 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
 // See Server.h
 void ServerImpl::Stop() {
     running.store(false);
-    shutdown(_server_socket, SHUT_RDWR);
+    shutdown(_server_socket, SHUT_RD);
+    {
+        std::lock_guard<std::mutex> lock(_workers_mutex);
+        for (auto w : _workers) {
+            w->Stop();
+        }
+    }
 }
 
 // See Server.h
@@ -141,12 +147,12 @@ void ServerImpl::OnRun() {
         int client_socket;
         struct sockaddr client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
+try_accept:
         if ((client_socket = accept(_server_socket, &client_addr, &client_addr_len)) == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                _logger->debug("accept() -- timeout\n");
-                std::this_thread::sleep_for(std::chrono::seconds(5));
+                std::this_thread::sleep_for(std::chrono::seconds(1));
                 ClearFinishedWorkers();
-                continue;
+                goto try_accept;
             } else {
                 _logger->debug("accept failed with error code {}\n", errno);
                 break;

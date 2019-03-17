@@ -48,7 +48,6 @@ void Worker::Start(int client_socket) {
 }
 
 void Worker::Stop() { _isRunning.store(false); }
-bool Worker::IsRunning() const { return _isRunning.load(); }
 
 void Worker::Join() {
     assert(_thread.joinable());
@@ -81,6 +80,9 @@ void Worker::OnRun() {
                 // - read#0: [<command1 start>]
                 // - read#1: [<command1 end> <argument> <command2> <argument for command 2> <command3> ... ]
                 while (readed_bytes > 0) {
+                    if (!_isRunning.load()) {
+                        break;
+                    }
                     _logger->debug("Process {} bytes", readed_bytes);
                     // There is no command yet
                     if (!command_to_execute) {
@@ -126,7 +128,7 @@ void Worker::OnRun() {
 
                         // Send response
                         result += "\r\n";
-                        if (send(_client_socket, result.data(), result.size(), 0) <= 0) {
+                        if (_isRunning.load() && send(_client_socket, result.data(), result.size(), 0) <= 0) {
                             throw std::runtime_error("Failed to send response");
                         }
 
