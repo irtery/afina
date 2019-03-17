@@ -15,7 +15,7 @@ bool SimpleLRU::Put(const std::string &key, const std::string &value) {
     }
 
     auto it = _lru_index.find(key);
-    if (it != _lru_index.end()) {    // set if key exists
+    if (it != _lru_index.end()) { // set if key exists
         return SetByIterator(it, value);
     }
 
@@ -86,10 +86,6 @@ bool SimpleLRU::Delete(const std::string &key) {
     }
 
     return true;
-}
-
-std::size_t SimpleLRU::SizeOf(const std::string &key, const std::string &value) const {
-    return key.size() + value.size();
 }
 
 std::size_t SimpleLRU::FreeSize() const { return _max_size - _in_use_size; }
