@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <thread>
+#include <chrono>
 #include <pthread.h>
 #include <signal.h>
 #include <sys/socket.h>
@@ -28,6 +30,21 @@
 namespace Afina {
 namespace Network {
 namespace MTblocking {
+
+void make_socket_non_blocking(int sfd) {
+    int flags, s;
+
+    flags = fcntl(sfd, F_GETFL, 0);
+    if (flags == -1) {
+        throw std::runtime_error("Failed to call fcntl to get socket flags");
+    }
+
+    flags |= O_NONBLOCK;
+    s = fcntl(sfd, F_SETFL, flags);
+    if (s == -1) {
+        throw std::runtime_error("Failed to call fcntl to set socket flags");
+    }
+}
 
 // See Server.h
 ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl) : Server(ps, pl) {}
@@ -68,6 +85,8 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
         throw std::runtime_error("Socket setsockopt() failed");
     }
 
+    make_socket_non_blocking(_server_socket);
+
     if (bind(_server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         close(_server_socket);
         throw std::runtime_error("Socket bind() failed");
@@ -103,7 +122,7 @@ void ServerImpl::Join() {
 
 // See Server.h
 void ServerImpl::OnRun() {
-    // Here is connection state
+        // Here is connection state
     // - parser: parse state of the stream
     // - command_to_execute: last command parsed out of stream
     // - arg_remains: how many bytes to read from stream to get command argument
@@ -113,14 +132,18 @@ void ServerImpl::OnRun() {
     std::string argument_for_command;
     std::unique_ptr<Execute::Command> command_to_execute;
     while (running.load()) {
-        _logger->debug("Max possible workers {}\n", _max_workers);
+        _logger->debug("Max possible workers {}", _max_workers);
         _logger->debug("waiting for connection...");
 
         // The call to accept() blocks until the incoming connection arrives
         int client_socket;
         struct sockaddr client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
-        if ((client_socket = accept(_server_socket, (struct sockaddr *)&client_addr, &client_addr_len)) == -1) {
+        if ((client_socket = accept(_server_socket, &client_addr, &client_addr_len)) == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                _logger->debug("accept() -- timeout\n");
+                std::this_thread::sleep_for (std::chrono::seconds(5));
+            }
             continue;
         }
 
