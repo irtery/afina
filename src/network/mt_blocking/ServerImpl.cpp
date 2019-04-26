@@ -150,7 +150,7 @@ void ServerImpl::OnRun() {
     try_accept:
         if ((client_socket = accept(_server_socket, &client_addr, &client_addr_len)) == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                std::this_thread::sleep_for(std::chrono::seconds(1)); // TODO: bad, not accepting connections in 1 sec
+                std::this_thread::sleep_for(std::chrono::seconds(1));
                 ClearFinishedWorkers();
                 goto try_accept;
             } else {
