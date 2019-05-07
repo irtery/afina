@@ -8,8 +8,6 @@
 
 #include <afina/network/Server.h>
 
-#include "Worker.h"
-
 namespace spdlog {
 class logger;
 }
@@ -24,7 +22,7 @@ class Worker;
  * # Network resource manager implementation
  * Server that is spawning a separate thread for each connection
  */
-class ServerImpl : public Server, public WorkerDelegate {
+class ServerImpl : public Server {
 public:
     ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl);
     ~ServerImpl() override;
@@ -45,19 +43,14 @@ protected:
     void OnRun();
 
 private:
-    void workerDidFinish(Worker *w) override;
-    void ClearFinishedWorkers();
+    void RunWorker(int client_socket);
 
 private:
-    uint32_t _max_workers;
-    std::list<Worker *> _workers;
-    std::mutex _workers_mutex;
-
     // Logger instance
     std::shared_ptr<spdlog::logger> _logger;
 
     // Atomic flag to notify threads when it is time to stop. Note that
-    // flag must be atomic in order to safely publisj changes cross thread
+    // flag must be atomic in order to safely publish changes cross thread
     // bounds
     std::atomic<bool> running;
 
@@ -67,8 +60,9 @@ private:
     // Thread to run network on
     std::thread _thread;
 
-    std::mutex _finished_worker_list_mutex;
-    std::vector<Worker *> _finished_worker_list;
+    uint32_t _max_workers;
+    std::list<int> _workers_sockets;
+    std::mutex _workers_mutex;
 };
 
 } // namespace MTblocking
