@@ -97,13 +97,7 @@ void ServerImpl::Stop() {
 // See Server.h
 void ServerImpl::Join() {
     assert(_thread.joinable());
-
-    {
-        std::unique_lock<std::mutex> lock(_workers_mutex);
-        _workers_cond_var.wait(lock, [this]() { return _workers_sockets.size() == 0; });
-    }
-
-    _thread.join();
+     _thread.join();
 
     close(_server_socket);
 }

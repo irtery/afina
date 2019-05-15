@@ -28,7 +28,6 @@ namespace Network {
 namespace STblocking {
 
 // See Server.h
-ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl) : Server(ps, pl) {}
 
 // See Server.h
 ServerImpl::~ServerImpl() {}
