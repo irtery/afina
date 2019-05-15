@@ -85,14 +85,13 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
 // See Server.h
 void ServerImpl::Stop() {
     running.store(false);
+    shutdown(_server_socket, SHUT_RDWR);
     {
         std::lock_guard<std::mutex> lock(_workers_mutex);
         for (auto ws : _workers_sockets) {
             shutdown(ws, SHUT_RD);
         }
-        _workers_sockets.clear();
     }
-    shutdown(_server_socket, SHUT_RDWR);
 }
 
 // See Server.h
@@ -101,10 +100,6 @@ void ServerImpl::Join() {
     _thread.join();
 
     close(_server_socket);
-
-    for (auto ws : _workers_sockets) {
-        close(ws);
-    }
 }
 
 // See Server.h
@@ -164,6 +159,11 @@ void ServerImpl::OnRun() {
                 close(client_socket);
             }
         }
+    }
+
+    {
+        std::unique_lock<std::mutex> lock(_workers_mutex);
+        _workers_cond_var.wait(lock, [this]() { return _workers_sockets.size() == 0; });
     }
 
     // Cleanup on exit...
@@ -264,6 +264,9 @@ void ServerImpl::RunWorker(int client_socket) {
         std::lock_guard<std::mutex> lock(_workers_mutex);
         auto it = find(_workers_sockets.begin(), _workers_sockets.end(), client_socket);
         _workers_sockets.erase(it);
+
+        if (_workers_sockets.size() == 0 && !running.load())
+            _workers_cond_var.notify_all();
     }
 }
 
