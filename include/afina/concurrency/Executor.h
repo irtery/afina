@@ -28,8 +28,9 @@ class Executor {
         kStopped
     };
 
-    Executor(std::string name, int size);
-    ~Executor();
+    Executor(std::string name, int size, int low_watermark, int high_watermark, int max_queue_size,
+             std::chrono::milliseconds idle_time);
+    ~Executor() {}
 
     /**
      * Signal thread pool to stop, it will stop accepting new jobs and close threads just after each become
@@ -51,13 +52,13 @@ class Executor {
         auto exec = std::bind(std::forward<F>(func), std::forward<Types>(args)...);
 
         std::unique_lock<std::mutex> lock(this->mutex);
-        if (state != State::kRun) {
+        if ((_state != State::kRun) || (_tasks.size() >= _max_queue_size)) {
             return false;
         }
 
         // Enqueue new task
-        tasks.push_back(exec);
-        empty_condition.notify_one();
+        _tasks.push_back(exec);
+        _empty_condition.notify_one();
         return true;
     }
 
@@ -76,27 +77,33 @@ private:
     /**
      * Mutex to protect state below from concurrent modification
      */
-    std::mutex mutex;
+    std::mutex _mutex;
 
     /**
      * Conditional variable to await new data in case of empty queue
      */
-    std::condition_variable empty_condition;
+    std::condition_variable _empty_condition;
 
     /**
      * Vector of actual threads that perorm execution
      */
-    std::vector<std::thread> threads;
+    std::vector<std::thread> _threads;
 
     /**
      * Task queue
      */
-    std::deque<std::function<void()>> tasks;
+    std::deque<std::function<void()>> _tasks;
 
     /**
      * Flag to stop bg threads
      */
-    State state;
+    State _state;
+
+    std::string _name;
+    int _low_watermark;
+    int _high_watermark;
+    int _max_queue_size;
+    std::chrono::milliseconds _idle_time;
 };
 
 } // namespace Concurrency
