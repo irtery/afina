@@ -80,22 +80,25 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
 
     running.store(true);
     _thread = std::thread(&ServerImpl::OnRun, this);
-    _executor = new Afina::Concurrency::Executor("threadpool", _max_workers, _max_workers + 1, 5,
-                                                 std::chrono::milliseconds(1000));
 }
 
 // See Server.h
 void ServerImpl::Stop() {
     running.store(false);
     shutdown(_server_socket, SHUT_RDWR);
-    _executor->Stop();
+    {
+        std::lock_guard<std::mutex> lock(_workers_mutex);
+        for (auto ws : _workers_sockets) {
+            shutdown(ws, SHUT_RD);
+        }
+    }
 }
 
 // See Server.h
 void ServerImpl::Join() {
     assert(_thread.joinable());
-    _thread.join();
-    _executor->Stop(true);
+     _thread.join();
+
     close(_server_socket);
 }
 
@@ -144,10 +147,23 @@ void ServerImpl::OnRun() {
         }
 
         // Start new thread and process data from/to connection
-        if (!(_executor->Execute(&ServerImpl::RunWorker, this, client_socket))) {
-            _logger->debug("Maximum connections reached, closing client_socket {}\n", client_socket);
-            close(client_socket);
+        {
+            std::lock_guard<std::mutex> lock(_workers_mutex);
+            if (_workers_sockets.size() <= _max_workers) {
+                _logger->debug("Create new worker for client_socket {}\n", client_socket);
+                _workers_sockets.push_back(client_socket);
+
+                std::thread(&ServerImpl::RunWorker, this, client_socket).detach();
+            } else {
+                _logger->debug("Maximum connections reached, closing client_socket {}\n", client_socket);
+                close(client_socket);
+            }
         }
+    }
+
+    {
+        std::unique_lock<std::mutex> lock(_workers_mutex);
+        _workers_cond_var.wait(lock, [this]() { return _workers_sockets.size() == 0; });
     }
 
     // Cleanup on exit...
@@ -243,6 +259,15 @@ void ServerImpl::RunWorker(int client_socket) {
 
     // We are done with this connection
     close(client_socket);
+
+    {
+        std::lock_guard<std::mutex> lock(_workers_mutex);
+        auto it = find(_workers_sockets.begin(), _workers_sockets.end(), client_socket);
+        _workers_sockets.erase(it);
+
+        if (_workers_sockets.size() == 0 && !running.load())
+            _workers_cond_var.notify_all();
+    }
 }
 
 } // namespace MTblocking

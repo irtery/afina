@@ -8,7 +8,6 @@
 #include <condition_variable>
 
 #include <afina/network/Server.h>
-#include <afina/concurrency/Executor.h>
 
 namespace spdlog {
 class logger;
@@ -17,6 +16,8 @@ class logger;
 namespace Afina {
 namespace Network {
 namespace MTblocking {
+
+class Worker;
 
 /**
  * # Network resource manager implementation
@@ -60,10 +61,10 @@ private:
     // Thread to run network on
     std::thread _thread;
 
-    Afina::Concurrency::Executor *_executor;
-
     uint32_t _max_workers;
+    std::list<int> _workers_sockets;
     std::mutex _workers_mutex;
+    std::condition_variable _workers_cond_var;
 };
 
 } // namespace MTblocking

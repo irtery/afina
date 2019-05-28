@@ -12,6 +12,10 @@
 namespace Afina {
 namespace Concurrency {
 
+class Executor;
+
+void perform(Executor *executor);
+
 /**
  * # Thread pool
  */
@@ -28,17 +32,9 @@ class Executor {
         kStopped
     };
 
-    Executor(std::string name, int size, int low_watermark, int high_watermark, int max_queue_size,
+    Executor(std::string name, int low_watermark, int high_watermark, int max_queue_size,
              std::chrono::milliseconds idle_time);
-    ~Executor() {}
-
-    /**
-     * Signal thread pool to stop, it will stop accepting new jobs and close threads just after each become
-     * free. All enqueued jobs will be complete.
-     *
-     * In case if await flag is true, call won't return until all background jobs are done and all threads are stopped
-     */
-    void Stop(bool await = false);
+    ~Executor() { Stop(true); }
 
     /**
      * Add function to be executed on the threadpool. Method returns true in case if task has been placed
@@ -51,16 +47,28 @@ class Executor {
         // Prepare "task"
         auto exec = std::bind(std::forward<F>(func), std::forward<Types>(args)...);
 
-        std::unique_lock<std::mutex> lock(this->mutex);
+        std::unique_lock<std::mutex> lock(this->_mutex);
         if ((_state != State::kRun) || (_tasks.size() >= _max_queue_size)) {
             return false;
         }
 
         // Enqueue new task
         _tasks.push_back(exec);
+        if ((_active_workers < _high_watermark) && (_free_workers == 0)) {
+            std::thread(&perform, this).detach();
+            _active_workers += 1;
+        }
         _empty_condition.notify_one();
         return true;
     }
+
+    /**
+     * Signal thread pool to stop, it will stop accepting new jobs and close threads just after each become
+     * free. All enqueued jobs will be complete.
+     *
+     * In case if await flag is true, call won't return until all background jobs are done and all threads are stopped
+     */
+    void Stop(bool await = false);
 
 private:
     // No copy/move/assign allowed
@@ -84,6 +92,8 @@ private:
      */
     std::condition_variable _empty_condition;
 
+    std::condition_variable _stop_condition;
+
     /**
      * Vector of actual threads that perorm execution
      */
@@ -104,8 +114,10 @@ private:
     int _high_watermark;
     int _max_queue_size;
     std::chrono::milliseconds _idle_time;
-};
 
+    int _active_workers;
+    int _free_workers;
+};
 } // namespace Concurrency
 } // namespace Afina
 
