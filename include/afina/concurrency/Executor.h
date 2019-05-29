@@ -20,6 +20,7 @@ void perform(Executor *executor);
  * # Thread pool
  */
 class Executor {
+public:
     enum class State {
         // Threadpool is fully operational, tasks could be added and get executed
         kRun,
@@ -32,8 +33,7 @@ class Executor {
         kStopped
     };
 
-    Executor(std::string name, int low_watermark, int high_watermark, int max_queue_size,
-             std::chrono::milliseconds idle_time);
+    Executor(int low_watermark, int high_watermark, int max_queue_size, std::chrono::milliseconds idle_time);
     ~Executor() { Stop(true); }
 
     /**
@@ -109,7 +109,6 @@ private:
      */
     State _state;
 
-    std::string _name;
     int _low_watermark;
     int _high_watermark;
     int _max_queue_size;

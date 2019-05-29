@@ -80,8 +80,7 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
 
     running.store(true);
     _thread = std::thread(&ServerImpl::OnRun, this);
-    _executor = new Afina::Concurrency::Executor("threadpool", _max_workers, _max_workers + 1, 5,
-                                                 std::chrono::milliseconds(1000));
+    _executor = new Afina::Concurrency::Executor(_max_workers, _max_workers + 1, 5, std::chrono::minutes(2));
 }
 
 // See Server.h
@@ -96,6 +95,7 @@ void ServerImpl::Join() {
     assert(_thread.joinable());
     _thread.join();
     _executor->Stop(true);
+    delete _executor;
     close(_server_socket);
 }
 

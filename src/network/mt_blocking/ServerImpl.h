@@ -63,7 +63,6 @@ private:
     Afina::Concurrency::Executor *_executor;
 
     uint32_t _max_workers;
-    std::mutex _workers_mutex;
 };
 
 } // namespace MTblocking

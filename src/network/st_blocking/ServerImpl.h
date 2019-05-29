@@ -20,7 +20,8 @@ namespace STblocking {
  */
 class ServerImpl : public Server {
 public:
-    ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl);
+    ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl)
+        : Server(std::move(ps), std::move(pl)) {}
     ~ServerImpl();
 
     // See Server.h
