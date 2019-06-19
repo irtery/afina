@@ -4,6 +4,7 @@
 #include <thread>
 #include <vector>
 
+#include <Connection.h>
 #include <afina/network/Server.h>
 
 namespace spdlog {
@@ -56,6 +57,8 @@ private:
 
     // IO thread
     std::thread _work_thread;
+
+    std::vector<Connection *> _connections;
 };
 
 } // namespace STnonblock

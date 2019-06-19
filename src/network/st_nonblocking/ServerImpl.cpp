@@ -91,6 +91,13 @@ void ServerImpl::Stop() {
     if (eventfd_write(_event_fd, 1)) {
         throw std::runtime_error("Failed to wakeup workers");
     }
+
+    for (auto connection: _connections) {
+        close(connection->_socket);
+        delete connection;
+    }
+
+    close(_server_socket);
 }
 
 // See Server.h
