@@ -3,6 +3,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <sys/uio.h>
 
 namespace Afina {
 namespace Network {
@@ -26,7 +27,6 @@ void Connection::Start() {
     // Prepare for reading
     _written_bytes = 0;
     _read_bytes = 0;
-    _event.events = Masks::read;
     _buffers_for_write.clear();
     _event.events = READ_EVENTS;
 }
@@ -50,8 +50,9 @@ void Connection::DoRead() {
     command_to_execute = nullptr;
 
     try {
-        while ((auto new_bytes =
-                    read(client_socket, client_buffer + _read_bytes, sizeof(client_buffer) - _read_bytes)) > 0) {
+        int new_bytes;
+        while ((new_bytes = read(client_socket, client_buffer + _read_bytes, sizeof(client_buffer) - _read_bytes)) >
+               0) {
             _logger->debug("Got {} bytes from socket", new_bytes);
             _read_bytes += new_bytes;
 
@@ -59,8 +60,8 @@ void Connection::DoRead() {
             // for example:
             // - read#0: [<command1 start>]
             // - read#1: [<command1 end> <argument> <command2> <argument for command 2> <command3> ... ]
-            while (readed_bytes > 0) {
-                _logger->debug("Process {} bytes", readed_bytes);
+            while (_read_bytes > 0) {
+                _logger->debug("Process {} bytes", _read_bytes);
                 // There is no command yet
                 if (!command_to_execute) {
                     std::size_t parsed = 0;
@@ -86,14 +87,14 @@ void Connection::DoRead() {
 
                 // There is command, but we still wait for argument to arrive...
                 if (command_to_execute && arg_remains > 0) {
-                    _logger->debug("Fill argument: {} bytes of {}", readed_bytes, arg_remains);
+                    _logger->debug("Fill argument: {} bytes of {}", _read_bytes, arg_remains);
                     // There is some parsed command, and now we are reading argument
-                    std::size_t to_read = std::min(arg_remains, std::size_t(readed_bytes));
+                    std::size_t to_read = std::min(arg_remains, std::size_t(_read_bytes));
                     argument_for_command.append(client_buffer, to_read);
 
-                    std::memmove(client_buffer, client_buffer + to_read, readed_bytes - to_read);
+                    std::memmove(client_buffer, client_buffer + to_read, _read_bytes - to_read);
                     arg_remains -= to_read;
-                    readed_bytes -= to_read;
+                    _read_bytes -= to_read;
                 }
 
                 // Thre is command & argument - RUN!
@@ -116,7 +117,7 @@ void Connection::DoRead() {
             } // while (readed_bytes)
         }
 
-        if (readed_bytes > 0) {
+        if (_read_bytes > 0) {
             throw std::runtime_error(std::string(strerror(errno)));
         }
     } catch (std::runtime_error &ex) {
@@ -142,21 +143,20 @@ void Connection::DoWrite() {
     int written = writev(_socket, buffers_iov, buffers_size);
     _written_bytes += written;
 
-    int del_it_ind = 0;
-    for (auto del_it = &buffers_iov[0]; _written_bytes > (*del_it).iov_len; ++del_it) {
+    auto del_it = _buffers_for_write.begin();
+    for (int del_it_ind = 0; _written_bytes > buffers_iov[del_it_ind].iov_len; ++del_it_ind) {
         if (buffers_size > del_it_ind) {
             break;
         }
-        _written_bytes -= (*del_it).iov_len;
-        ++del_it_ind;
+        _written_bytes -= buffers_iov[del_it_ind].iov_len;
+        ++del_it;
     }
 
-    _buffers_for_write.erase(_buffers_for_write.begin(), _buffers_for_write.begin() + del_it_ind)
+    _buffers_for_write.erase(_buffers_for_write.begin(), del_it);
 
-        if (_buffers_for_write.size() == 0) {
+    if (_buffers_for_write.size() == 0) {
         _event.events = READ_EVENTS;
-    }
-    else {
+    } else {
         _event.events = READ_WRITE_EVENTS;
     }
 }
