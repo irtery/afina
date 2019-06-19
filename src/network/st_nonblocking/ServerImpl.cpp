@@ -132,7 +132,7 @@ void ServerImpl::OnRun() {
     std::array<struct epoll_event, 64> mod_list;
     while (run) {
         int nmod = epoll_wait(epoll_descr, &mod_list[0], mod_list.size(), -1);
-        _logger->debug("Acceptor wokeup: {} events", nmod);
+        _logger->debug("Acceptor wake up: {} events", nmod);
 
         for (int i = 0; i < nmod; i++) {
             struct epoll_event &current_event = mod_list[i];
