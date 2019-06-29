@@ -26,7 +26,7 @@ private:
         char *Low = nullptr;
 
         // coroutine stack end address
-        char *Hight = nullptr;
+        char *High = nullptr;
 
         // coroutine stack copy buffer
         std::tuple<char *, uint32_t> Stack = std::make_tuple(nullptr, 0);
@@ -66,14 +66,14 @@ protected:
     void Store(context &ctx);
 
     /**
-     * Restore stack of the given context and pass control to coroutinne
+     * Restore stack of the given context and pass control to coroutine
      */
     void Restore(context &ctx);
 
     /**
      * Suspend current coroutine execution and execute given context
      */
-    // void Enter(context& ctx);
+    void Enter(context& ctx);
 
 public:
     Engine() : StackBottom(0), cur_routine(nullptr), alive(nullptr) {}
